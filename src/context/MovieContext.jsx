@@ -135,6 +135,155 @@ export function MovieProvider({ children }) {
         }
     }
 
+    // Function to group series by main title and combine seasons
+    const groupSeriesByTitle = (items) => {
+        const seriesMap = new Map()
+        const bannerMap = new Map() // Store banners separately first
+
+        // First pass: collect all banners from items that have them
+        items.forEach(item => {
+            if (item.banner && item.title) {
+                // Extract the core series name from titles that have banners
+                let coreTitle = item.title
+
+                // Remove various patterns to get core title
+                coreTitle = coreTitle.replace(/^.*?\s*-\s*/, '') // Remove category prefix
+                coreTitle = coreTitle.replace(/\s*-\s*Season\s+\d+.*$/i, '') // Remove season suffix
+                coreTitle = coreTitle.replace(/\s+\([^)]*\)\s*.*$/, '') // Remove year/quality info and everything after
+                coreTitle = coreTitle.trim()
+
+                // Store banner with the core title and original title
+                if (coreTitle && !bannerMap.has(coreTitle)) {
+                    bannerMap.set(coreTitle, item.banner)
+                    console.log(`Found banner for: "${coreTitle}" -> ${item.banner}`)
+                }
+                // Also store with original title as fallback
+                if (item.title && !bannerMap.has(item.title)) {
+                    bannerMap.set(item.title, item.banner)
+                }
+            }
+        })
+
+        // Second pass: group series and assign banners (more lenient filtering)
+        items.forEach(item => {
+            // Only skip truly empty items
+            if (!item.title) {
+                return
+            }
+
+            // More lenient check - include items with seasons even if some don't have episodes
+            if (item.seasons && item.seasons.length > 0) {
+                // This item has seasons, process it
+            } else if (item.episodes && item.episodes.length > 0) {
+                // This item has direct episodes, convert to season format
+                item.seasons = [{
+                    season_number: 1,
+                    episodes: item.episodes
+                }]
+            } else {
+                // Skip only if it has no content at all
+                console.log(`Skipping item with no content: "${item.title}"`)
+                return
+            }
+
+            // Extract main series title by removing season info
+            let mainTitle = item.title
+
+            // Handle specific pattern like "Demon Slayer-Kimetsu no Yaiba (TV Cartoon 2019– ) 1080p [Multi Audio] - Season X"
+            let seasonMatch = item.title.match(/^(.*?)\s*-\s*Season\s+\d+/i)
+            if (seasonMatch) {
+                mainTitle = seasonMatch[1].trim()
+            } else {
+                // Handle pattern like "Anime-TV Series ♥ A — F - Series Name (details)"
+                let categoryMatch = item.title.match(/^.*?\s*-\s*(.+?)\s*\([^)]*\)\s*.*$/i)
+                if (categoryMatch) {
+                    mainTitle = categoryMatch[1].trim()
+                } else {
+                    // Remove category prefix if it exists (fallback)
+                    mainTitle = item.title.replace(/^.*?\s*-\s*/, '').trim()
+                }
+            }
+
+            // Clean up the main title to match banner keys
+            let coreTitle = mainTitle.replace(/\s+\([^)]*\)\s*.*$/, '').trim()
+
+            // Get or create the main series entry
+            if (!seriesMap.has(mainTitle)) {
+                // Find the best matching banner using multiple strategies
+                let banner = item.banner || // Use item's own banner first
+                    bannerMap.get(coreTitle) ||
+                    bannerMap.get(mainTitle) ||
+                    bannerMap.get(item.title) || // Try original title
+                    null
+
+                // If no banner found, try partial matching with more flexible approach
+                if (!banner) {
+                    // Extract core name for matching (like "Demon Slayer-Kimetsu no Yaiba")
+                    let extractedCore = mainTitle.replace(/\s*\([^)]*\).*$/, '').trim()
+
+                    for (const [bannerKey, bannerUrl] of bannerMap.entries()) {
+                        let bannerCore = bannerKey.replace(/\s*\([^)]*\).*$/, '').trim()
+
+                        if (extractedCore.toLowerCase().includes(bannerCore.toLowerCase()) ||
+                            bannerCore.toLowerCase().includes(extractedCore.toLowerCase()) ||
+                            coreTitle.toLowerCase().includes(bannerCore.toLowerCase()) ||
+                            bannerCore.toLowerCase().includes(coreTitle.toLowerCase()) ||
+                            mainTitle.toLowerCase().includes(bannerCore.toLowerCase()) ||
+                            bannerCore.toLowerCase().includes(mainTitle.toLowerCase())) {
+                            banner = bannerUrl
+                            console.log(`Found partial match banner for "${mainTitle}": ${bannerKey}`)
+                            break
+                        }
+                    }
+                }
+
+                seriesMap.set(mainTitle, {
+                    title: mainTitle,
+                    banner: banner,
+                    seasons: [],
+                    type: 'series',
+                    category: item.category,
+                    categoryKey: item.categoryKey
+                })
+
+                console.log(`Created series: "${mainTitle}" with banner: ${banner ? 'YES' : 'NO'}`)
+            }
+
+            const mainSeries = seriesMap.get(mainTitle)
+
+            // Add seasons from this item to the main series
+            if (item.seasons) {
+                item.seasons.forEach(season => {
+                    // Check if this season already exists and has episodes
+                    const existingSeason = mainSeries.seasons.find(s => s.season_number === season.season_number)
+                    if (!existingSeason && season.episodes && season.episodes.length > 0) {
+                        mainSeries.seasons.push(season)
+                    }
+                })
+            }
+        })
+
+        // Convert map to array and sort seasons
+        const groupedSeries = Array.from(seriesMap.values())
+        groupedSeries.forEach(series => {
+            series.seasons.sort((a, b) => a.season_number - b.season_number)
+        })
+
+        console.log(`Grouped ${items.length} series items into ${groupedSeries.length} main series`)
+        console.log(`Found banners for ${bannerMap.size} series`)
+
+        // Add fallback banners for series without banners
+        groupedSeries.forEach(series => {
+            if (!series.banner) {
+                // Create a placeholder banner URL
+                series.banner = `https://via.placeholder.com/300x450/1a1a1a/ffffff?text=${encodeURIComponent(series.title)}`
+                console.log(`Added placeholder banner for: "${series.title}"`)
+            }
+        })
+
+        return groupedSeries
+    }
+
     // Load movie data from JSON files
     const loadMovieData = async () => {
         try {
@@ -156,14 +305,29 @@ export function MovieProvider({ children }) {
                         const data = await response.json()
                         if (data.items) {
                             console.log(`Loaded ${data.items.length} items from ${categoryKey}`)
-                            data.items.forEach(item => {
-                                allContent.push({
-                                    ...item,
-                                    category: data.category,
-                                    categoryKey,
-                                    type: data.type
+
+                            // Special handling for series to group seasons
+                            if (data.type === 'series') {
+                                const groupedSeries = groupSeriesByTitle(data.items)
+                                groupedSeries.forEach(item => {
+                                    allContent.push({
+                                        ...item,
+                                        category: data.category,
+                                        categoryKey,
+                                        type: data.type
+                                    })
                                 })
-                            })
+                            } else {
+                                // Regular handling for movies
+                                data.items.forEach(item => {
+                                    allContent.push({
+                                        ...item,
+                                        category: data.category,
+                                        categoryKey,
+                                        type: data.type
+                                    })
+                                })
+                            }
                         }
                     } catch (error) {
                         console.warn(`Failed to load ${categoryKey}.json:`, error)
