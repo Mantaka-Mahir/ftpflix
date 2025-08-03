@@ -1,0 +1,99 @@
+{
+  "categories": {
+    "all": {
+      "name": "All",
+      "type": "all",
+      "count": 49482
+    },
+    "animation_movies_1080p": {
+      "name": "Animation Movies 1080p",
+      "type": "movie",
+      "count": 562
+    },
+    "animation_movies": {
+      "name": "Animation Movies",
+      "type": "movie",
+      "count": 1399
+    },
+    "english_movies_1080p": {
+      "name": "English Movies 1080p",
+      "type": "movie",
+      "count": 3625
+    },
+    "hindi_movies": {
+      "name": "Hindi Movies",
+      "type": "movie",
+      "count": 3596
+    },
+    "imdb_top_250": {
+      "name": "IMDb Top 250 Movies",
+      "type": "movie",
+      "count": 250
+    },
+    "south_indian_hindi_dubbed": {
+      "name": "South Indian Movies (Hindi Dubbed)",
+      "type": "movie",
+      "count": 2116
+    },
+    "south_indian_original": {
+      "name": "South Indian Movies (Original)",
+      "type": "movie",
+      "count": 1798
+    },
+    "3d_movies": {
+      "name": "3D Movies",
+      "type": "movie",
+      "count": 80
+    },
+    "english_movies": {
+      "name": "English Movies",
+      "type": "movie",
+      "count": 14445
+    },
+    "foreign_language_movies": {
+      "name": "Foreign Language Movies",
+      "type": "movie",
+      "count": 3034
+    },
+    "kolkata_bangla_movies": {
+      "name": "Kolkata Bangla Movies",
+      "type": "movie",
+      "count": 698
+    },
+    "satyajit_ray_films": {
+      "name": "Satyajit Ray Films",
+      "type": "movie",
+      "count": 34
+    },
+    "tv_web_series": {
+      "name": "TV & WEB Series",
+      "type": "series",
+      "count": 8721
+    },
+    "korean_tv_series": {
+      "name": "Korean TV & WEB Series",
+      "type": "series",
+      "count": 1573
+    },
+    "anime_cartoon_series": {
+      "name": "Anime & Cartoon TV Series",
+      "type": "series",
+      "count": 5643
+    },
+    "awards_tv_shows": {
+      "name": "Awards & TV Shows",
+      "type": "series",
+      "count": 113
+    },
+    "documentary": {
+      "name": "Documentary",
+      "type": "series",
+      "count": 1501
+    },
+    "wrestling": {
+      "name": "WWE & AEW Wrestling",
+      "type": "series",
+      "count": 294
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+    "category": "Demo Videos (Working)",
+    "type": "movie",
+    "items": [
+        {
+            "title": "Sample Video - Sintel Trailer",
+            "banner": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Sintel_poster.jpg/300px-Sintel_poster.jpg",
+            "sources": [
+                {
+                    "quality": "720",
+                    "urls": [
+                        "https://sample-videos.com/zip/10/mp4/720/mp4-sample-1.mp4"
+                    ]
+                }
+            ]
+        },
+        {
+            "title": "Big Buck Bunny",
+            "banner": "https://peach.blender.org/wp-content/uploads/title_anouncement.jpg",
+            "sources": [
+                {
+                    "quality": "1080",
+                    "urls": [
+                        "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+                    ]
+                }
+            ]
+        },
+        {
+            "title": "Elephant Dream",
+            "banner": "https://peach.blender.org/wp-content/uploads/title_anouncement.jpg",
+            "sources": [
+                {
+                    "quality": "720",
+                    "urls": [
+                        "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
+                    ]
+                }
+            ]
+        },
+        {
+            "title": "For Bigger Blazes",
+            "banner": "https://peach.blender.org/wp-content/uploads/title_anouncement.jpg",
+            "sources": [
+                {
+                    "quality": "1080",
+                    "urls": [
+                        "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+                    ]
+                }
+            ]
+        }
+    ]
+}

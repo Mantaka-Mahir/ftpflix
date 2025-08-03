@@ -1,0 +1,24 @@
+{
+    "categories": {
+        "demo_videos": {
+            "name": "Demo Videos (Working)",
+            "type": "movie",
+            "count": 3
+        },
+        "english_movies_1080p": {
+            "name": "English Movies 1080p",
+            "type": "movie",
+            "count": 3625
+        },
+        "hindi_movies": {
+            "name": "Hindi Movies",
+            "type": "movie",
+            "count": 3596
+        },
+        "tv_web_series": {
+            "name": "TV & WEB Series",
+            "type": "series",
+            "count": 1500
+        }
+    }
+}
