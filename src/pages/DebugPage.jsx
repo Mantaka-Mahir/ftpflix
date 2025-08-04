@@ -5,7 +5,7 @@ function DebugPage() {
     const { state, actions } = useMovie()
 
     return (
-        <div className="min-h-screen bg-netflix-black text-white pt-20 px-4">
+        <div className="min-h-screen bg-ftpflix-black text-white pt-20 px-4">
             <div className="max-w-7xl mx-auto">
                 <h1 className="text-3xl font-bold mb-8">Debug Information</h1>
 
@@ -73,7 +73,7 @@ function DebugPage() {
                 <div className="mt-8">
                     <button
                         onClick={actions.reloadData}
-                        className="bg-netflix-red text-white px-6 py-3 rounded hover:bg-red-700 transition-colors"
+                        className="bg-ftpflix-red text-white px-6 py-3 rounded hover:bg-red-700 transition-colors"
                     >
                         Reload Data
                     </button>

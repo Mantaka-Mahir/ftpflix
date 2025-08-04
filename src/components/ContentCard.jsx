@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { FiPlay, FiInfo, FiX, FiChevronDown, FiChevronUp } from 'react-icons/fi'
+import React, { useState, useEffect } from 'react'
+import { FiPlay, FiInfo, FiX, FiChevronDown, FiChevronUp, FiSmartphone } from 'react-icons/fi'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useMovie } from '../context/MovieContext'
 
@@ -7,7 +7,50 @@ function ContentCard({ content, size = 'medium' }) {
     const [isHovered, setIsHovered] = useState(false)
     const [imageLoaded, setImageLoaded] = useState(false)
     const [imageError, setImageError] = useState(false)
+    const [platform, setPlatform] = useState('unknown')
     const { actions } = useMovie()
+
+    useEffect(() => {
+        const detectPlatform = () => {
+            const userAgent = navigator.userAgent.toLowerCase()
+            if (/android/.test(userAgent)) {
+                setPlatform('android')
+            } else if (/iphone|ipad/.test(userAgent)) {
+                setPlatform('ios')
+            } else if (/windows/.test(userAgent)) {
+                setPlatform('windows')
+            } else {
+                setPlatform('desktop')
+            }
+        }
+        detectPlatform()
+    }, [])
+
+    const getVLCButtonText = () => {
+        switch (platform) {
+            case 'android':
+                return 'Open in VLC'
+            case 'ios':
+                return 'Open in VLC'
+            case 'windows':
+                return 'Play in VLC'
+            default:
+                return 'Play in VLC'
+        }
+    }
+
+    const getVLCTooltip = () => {
+        switch (platform) {
+            case 'android':
+                return 'Open in VLC for Android'
+            case 'ios':
+                return 'Open in VLC for iOS'
+            case 'windows':
+                return 'Play in VLC Media Player'
+            default:
+                return 'Play in VLC Media Player'
+        }
+    }
 
     const handlePlay = (e) => {
         e.stopPropagation()
@@ -39,7 +82,7 @@ function ContentCard({ content, size = 'medium' }) {
             transition={{ duration: 0.2 }}
         >
             {/* Main Image */}
-            <div className="relative w-full h-full overflow-hidden rounded-lg bg-netflix-gray">
+            <div className="relative w-full h-full overflow-hidden rounded-lg bg-ftpflix-gray">
                 {!imageLoaded && !imageError && (
                     <div className="absolute inset-0 skeleton rounded-lg" />
                 )}
@@ -102,11 +145,14 @@ function ContentCard({ content, size = 'medium' }) {
                                 transition={{ delay: 0.1 }}
                                 onClick={handlePlay}
                                 className="bg-white text-black p-3 rounded-full hover:bg-gray-200 transition-colors group relative"
-                                title="Play in VLC Media Player"
+                                title={getVLCTooltip()}
                             >
-                                <FiPlay size={20} fill="currentColor" />
+                                {platform === 'android' || platform === 'ios' ?
+                                    <FiSmartphone size={20} /> :
+                                    <FiPlay size={20} fill="currentColor" />
+                                }
                                 <span className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                                    Play in VLC
+                                    {getVLCButtonText()}
                                 </span>
                             </motion.button>
 
@@ -116,7 +162,7 @@ function ContentCard({ content, size = 'medium' }) {
                                 exit={{ scale: 0 }}
                                 transition={{ delay: 0.15 }}
                                 onClick={handleInfo}
-                                className="bg-netflix-gray text-white p-3 rounded-full hover:bg-gray-600 transition-colors"
+                                className="bg-ftpflix-gray text-white p-3 rounded-full hover:bg-gray-600 transition-colors"
                             >
                                 <FiInfo size={20} />
                             </motion.button>
@@ -141,6 +187,49 @@ export function ContentDetailsModal() {
     const { state, actions } = useMovie()
     const [selectedSeason, setSelectedSeason] = useState(1)
     const [showAllSeasons, setShowAllSeasons] = useState(false)
+    const [platform, setPlatform] = useState('unknown')
+
+    useEffect(() => {
+        const detectPlatform = () => {
+            const userAgent = navigator.userAgent.toLowerCase()
+            if (/android/.test(userAgent)) {
+                setPlatform('android')
+            } else if (/iphone|ipad/.test(userAgent)) {
+                setPlatform('ios')
+            } else if (/windows/.test(userAgent)) {
+                setPlatform('windows')
+            } else {
+                setPlatform('desktop')
+            }
+        }
+        detectPlatform()
+    }, [])
+
+    const getVLCButtonText = () => {
+        switch (platform) {
+            case 'android':
+                return 'Open in VLC'
+            case 'ios':
+                return 'Open in VLC'
+            case 'windows':
+                return 'Play in VLC'
+            default:
+                return 'Play in VLC'
+        }
+    }
+
+    const getVLCTooltip = () => {
+        switch (platform) {
+            case 'android':
+                return 'Open in VLC for Android'
+            case 'ios':
+                return 'Open in VLC for iOS'
+            case 'windows':
+                return 'Play in VLC Media Player'
+            default:
+                return 'Play in VLC Media Player'
+        }
+    }
 
     if (!state.isDetailsOpen || !state.currentContent) return null
 
@@ -175,7 +264,7 @@ export function ContentDetailsModal() {
                     initial={{ scale: 0.9, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.9, opacity: 0 }}
-                    className="bg-netflix-black rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden"
+                    className="bg-ftpflix-black rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden"
                 >
                     {/* Header */}
                     <div className="relative">
@@ -186,7 +275,7 @@ export function ContentDetailsModal() {
                                     alt={content.title}
                                     className="w-full h-full object-cover"
                                 />
-                                <div className="absolute inset-0 bg-gradient-to-t from-netflix-black via-transparent to-transparent" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-ftpflix-black via-transparent to-transparent" />
                             </div>
                         )}
 
@@ -203,10 +292,13 @@ export function ContentDetailsModal() {
                                 <button
                                     onClick={() => handlePlay()}
                                     className="bg-white text-black px-6 py-2 rounded font-semibold hover:bg-gray-200 transition-colors flex items-center gap-2"
-                                    title="Play in VLC Media Player"
+                                    title={getVLCTooltip()}
                                 >
-                                    <FiPlay size={16} fill="currentColor" />
-                                    Play in VLC
+                                    {platform === 'android' || platform === 'ios' ?
+                                        <FiSmartphone size={16} /> :
+                                        <FiPlay size={16} fill="currentColor" />
+                                    }
+                                    {getVLCButtonText()}
                                 </button>
 
                                 {content.category && (
@@ -230,7 +322,7 @@ export function ContentDetailsModal() {
                                         <select
                                             value={selectedSeason}
                                             onChange={(e) => setSelectedSeason(Number(e.target.value))}
-                                            className="bg-netflix-gray text-white px-3 py-1 rounded border border-gray-600 focus:border-white focus:outline-none"
+                                            className="bg-ftpflix-gray text-white px-3 py-1 rounded border border-gray-600 focus:border-white focus:outline-none"
                                         >
                                             {content.seasons.map((season) => (
                                                 <option key={season.season_number} value={season.season_number}>
@@ -249,9 +341,9 @@ export function ContentDetailsModal() {
                                         .map((episode) => (
                                             <div
                                                 key={episode.episode_number}
-                                                className="bg-netflix-gray p-3 rounded hover:bg-gray-600 transition-colors cursor-pointer"
+                                                className="bg-ftpflix-gray p-3 rounded hover:bg-gray-600 transition-colors cursor-pointer"
                                                 onClick={() => handlePlay(episode)}
-                                                title="Play in VLC Media Player"
+                                                title={getVLCTooltip()}
                                             >
                                                 <div className="flex items-center justify-between">
                                                     <div>
@@ -272,7 +364,7 @@ export function ContentDetailsModal() {
                                     {content.seasons.find(s => s.season_number === selectedSeason)?.episodes?.length > 10 && (
                                         <button
                                             onClick={() => setShowAllSeasons(!showAllSeasons)}
-                                            className="w-full text-center text-netflix-red hover:text-red-400 transition-colors py-2 flex items-center justify-center gap-2"
+                                            className="w-full text-center text-ftpflix-red hover:text-red-400 transition-colors py-2 flex items-center justify-center gap-2"
                                         >
                                             {showAllSeasons ? 'Show Less' : 'Show More'}
                                             {showAllSeasons ? <FiChevronUp /> : <FiChevronDown />}
@@ -290,13 +382,16 @@ export function ContentDetailsModal() {
                                     {content.sources.map((source, index) => (
                                         <div
                                             key={index}
-                                            className="bg-netflix-gray p-3 rounded hover:bg-gray-600 transition-colors cursor-pointer"
+                                            className="bg-ftpflix-gray p-3 rounded hover:bg-gray-600 transition-colors cursor-pointer"
                                             onClick={() => handlePlay()}
-                                            title="Play in VLC Media Player"
+                                            title={getVLCTooltip()}
                                         >
                                             <div className="flex items-center justify-between">
-                                                <span className="text-white">{source.quality}p Quality - Play in VLC</span>
-                                                <FiPlay className="text-white" size={16} />
+                                                <span className="text-white">{source.quality}p Quality - {getVLCButtonText()}</span>
+                                                {platform === 'android' || platform === 'ios' ?
+                                                    <FiSmartphone className="text-white" size={16} /> :
+                                                    <FiPlay className="text-white" size={16} />
+                                                }
                                             </div>
                                         </div>
                                     ))}

@@ -2,6 +2,63 @@
 @tailwind components;
 @tailwind utilities;
 
+/* FTPFLIX Custom Colors */
+:root {
+    --ftpflix-red: #e50914;
+    --ftpflix-black: #141414;
+    --ftpflix-gray: #2a2a2a;
+}
+
+/* Tailwind-style utility classes for FTPFLIX colors */
+.bg-ftpflix-red {
+    background-color: var(--ftpflix-red);
+}
+
+.bg-ftpflix-black {
+    background-color: var(--ftpflix-black);
+}
+
+.bg-ftpflix-gray {
+    background-color: var(--ftpflix-gray);
+}
+
+.text-ftpflix-red {
+    color: var(--ftpflix-red);
+}
+
+.text-ftpflix-black {
+    color: var(--ftpflix-black);
+}
+
+.text-ftpflix-gray {
+    color: var(--ftpflix-gray);
+}
+
+/* Legacy Netflix color compatibility (mapped to FTPFLIX colors) */
+.bg-netflix-red {
+    background-color: var(--ftpflix-red);
+}
+
+.bg-netflix-black {
+    background-color: var(--ftpflix-black);
+}
+
+.bg-netflix-gray {
+    background-color: var(--ftpflix-gray);
+}
+
+.text-netflix-red {
+    color: var(--ftpflix-red);
+}
+
+.text-netflix-black {
+    color: var(--ftpflix-black);
+}
+
+.text-netflix-gray {
+    color: var(--ftpflix-gray);
+}
+
 /* Video.js custom styles */
 .video-js {
     width: 100%;

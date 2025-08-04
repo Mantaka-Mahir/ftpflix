@@ -38,7 +38,7 @@ function HeroSection() {
 
     if (!currentHero) {
         return (
-            <div className="relative h-[80vh] bg-netflix-gray">
+            <div className="relative h-[80vh] bg-ftpflix-gray">
                 <div className="skeleton w-full h-full" />
             </div>
         )
@@ -76,7 +76,7 @@ function HeroSection() {
                             {/* Category Badge */}
                             {currentHero.category && (
                                 <div className="mb-4">
-                                    <span className="bg-netflix-red text-white px-3 py-1 rounded text-sm font-semibold">
+                                    <span className="bg-ftpflix-red text-white px-3 py-1 rounded text-sm font-semibold">
                                         {currentHero.category}
                                     </span>
                                 </div>
@@ -123,36 +123,11 @@ function HeroSection() {
                                     More Info
                                 </motion.button>
                             </div>
-
-                            {/* Additional Info */}
-                            <div className="mt-8 text-gray-300">
-                                <p className="text-lg leading-relaxed max-w-lg">
-                                    Discover this amazing {currentHero.type} from our collection of premium content.
-                                    {currentHero.sources && currentHero.sources.length > 1 && (
-                                        <span className="block mt-2 text-sm">
-                                            Available in multiple qualities: {currentHero.sources.map(s => s.quality + 'p').join(', ')}
-                                        </span>
-                                    )}
-                                </p>
-                            </div>
                         </motion.div>
                     </div>
                 </div>
             </div>
 
-            {/* Scroll Indicator */}
-            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2">
-                <motion.div
-                    animate={{ y: [0, 10, 0] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className="text-white text-center"
-                >
-                    <div className="w-6 h-10 border-2 border-white rounded-full flex justify-center">
-                        <div className="w-1 h-3 bg-white rounded-full mt-2" />
-                    </div>
-                    <p className="text-sm mt-2">Scroll for more</p>
-                </motion.div>
-            </div>
         </div>
     )
 }

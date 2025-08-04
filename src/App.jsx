@@ -9,6 +9,7 @@ import DebugPage from './pages/DebugPage'
 import VideoPlayer from './components/VideoPlayer'
 import VLCNotification from './components/VLCNotification'
 import VLCSetupGuide from './components/VLCSetupGuide'
+import VLCMobileGuide from './components/VLCMobileGuide'
 import ErrorBoundary from './components/ErrorBoundary'
 
 function App() {
@@ -16,7 +17,7 @@ function App() {
         <ErrorBoundary>
             <MovieProvider>
                 <Router>
-                    <div className="min-h-screen bg-netflix-black text-white">
+                    <div className="min-h-screen bg-ftpflix-black text-white">
                         <Navbar />
                         <Routes>
                             <Route path="/" element={<Home />} />
@@ -27,6 +28,7 @@ function App() {
                         <VideoPlayer />
                         <VLCNotification />
                         <VLCSetupGuide />
+                        <VLCMobileGuide />
                     </div>
                 </Router>
             </MovieProvider>

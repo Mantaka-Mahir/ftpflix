@@ -30,7 +30,7 @@ function Home() {
     ]
 
     return (
-        <div className="min-h-screen bg-netflix-black">
+        <div className="min-h-screen bg-ftpflix-black">
             {/* Hero Section */}
             <HeroSection />
 
@@ -88,7 +88,7 @@ function Home() {
                         </p>
                         <button
                             onClick={() => window.location.reload()}
-                            className="bg-netflix-red text-white px-6 py-3 rounded hover:bg-red-700 transition-colors"
+                            className="bg-ftpflix-red text-white px-6 py-3 rounded hover:bg-red-700 transition-colors"
                         >
                             Retry
                         </button>

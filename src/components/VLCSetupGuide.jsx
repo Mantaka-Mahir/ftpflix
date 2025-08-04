@@ -1,8 +1,21 @@
 import React, { useState } from 'react'
-import { FiX, FiExternalLink, FiDownload, FiInfo } from 'react-icons/fi'
+import { FiX, FiExternalLink, FiDownload, FiInfo, FiTerminal, FiCopy } from 'react-icons/fi'
 
 function VLCSetupGuide() {
     const [isVisible, setIsVisible] = useState(false)
+    const [showCopyConfirm, setShowCopyConfirm] = useState(false)
+
+    const powershellCommand = "irm https://tanmoythebot.github.io/vlc-protocol/vlc-protocol-setup.ps1 | iex"
+
+    const copyToClipboard = async (text) => {
+        try {
+            await navigator.clipboard.writeText(text)
+            setShowCopyConfirm(true)
+            setTimeout(() => setShowCopyConfirm(false), 2000)
+        } catch (error) {
+            console.error('Failed to copy to clipboard:', error)
+        }
+    }
 
     return (
         <>
@@ -18,7 +31,7 @@ function VLCSetupGuide() {
             {/* Setup Guide Modal */}
             {isVisible && (
                 <div className="fixed inset-0 z-50 bg-black bg-opacity-75 flex items-center justify-center p-4">
-                    <div className="bg-netflix-black border border-gray-600 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div className="bg-ftpflix-black border border-gray-600 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                         {/* Header */}
                         <div className="flex items-center justify-between p-4 border-b border-gray-600">
                             <h2 className="text-xl font-semibold text-white">VLC Media Player Setup</h2>
@@ -54,11 +67,45 @@ function VLCSetupGuide() {
 
                             {/* Windows Setup */}
                             <div>
-                                <h3 className="text-lg font-semibold text-white mb-3">
-                                    2. Windows Setup (Optional)
+                                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                                    <FiTerminal size={20} />
+                                    2. Windows Setup (Recommended)
                                 </h3>
-                                <div className="bg-gray-800 p-4 rounded text-sm text-gray-300 space-y-2">
-                                    <p>To enable automatic VLC opening:</p>
+                                <div className="bg-blue-900 bg-opacity-50 border border-blue-700 p-4 rounded text-sm text-blue-100 space-y-3">
+                                    <p className="font-medium">⚡ Quick Setup - Enable VLC Protocol Automatically:</p>
+                                    <p>Run this command in PowerShell as Administrator to properly configure VLC protocol:</p>
+
+                                    <div className="bg-gray-900 p-3 rounded border border-gray-600 font-mono text-xs">
+                                        <div className="flex items-center justify-between">
+                                            <code className="text-green-400 break-all">
+                                                {powershellCommand}
+                                            </code>
+                                            <button
+                                                onClick={() => copyToClipboard(powershellCommand)}
+                                                className="ml-2 bg-gray-700 hover:bg-gray-600 text-white p-1 rounded transition-colors flex-shrink-0"
+                                                title="Copy command"
+                                            >
+                                                <FiCopy size={12} />
+                                            </button>
+                                        </div>
+                                        {showCopyConfirm && (
+                                            <p className="text-green-400 text-xs mt-1">✓ Copied to clipboard!</p>
+                                        )}
+                                    </div>
+
+                                    <div className="text-xs space-y-1">
+                                        <p><strong>How to run:</strong></p>
+                                        <ol className="list-decimal list-inside space-y-1 ml-2">
+                                            <li>Right-click Start button → Windows Terminal (Admin)</li>
+                                            <li>Paste the command above and press Enter</li>
+                                            <li>Allow the script to run when prompted</li>
+                                            <li>Restart your browser for changes to take effect</li>
+                                        </ol>
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 bg-gray-800 p-4 rounded text-sm text-gray-300 space-y-2">
+                                    <p className="font-medium">Alternative Manual Setup:</p>
                                     <ol className="list-decimal list-inside space-y-1 ml-4">
                                         <li>Open VLC Media Player</li>
                                         <li>Go to Tools → Preferences</li>
@@ -118,7 +165,7 @@ function VLCSetupGuide() {
                         <div className="p-4 border-t border-gray-600 text-center">
                             <button
                                 onClick={() => setIsVisible(false)}
-                                className="bg-netflix-red hover:bg-red-700 text-white px-6 py-2 rounded transition-colors"
+                                className="bg-ftpflix-red hover:bg-red-700 text-white px-6 py-2 rounded transition-colors"
                             >
                                 Got it!
                             </button>

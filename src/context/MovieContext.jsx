@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react'
+import { getSearchSuggestions } from '../utils/fuzzySearch'
 
 // Initial state
 const initialState = {
@@ -104,34 +105,80 @@ export function MovieProvider({ children }) {
             }
         })
 
+        // Detect platform
+        const userAgent = navigator.userAgent.toLowerCase()
+        const isAndroid = /android/.test(userAgent)
+        const isIOS = /iphone|ipad/.test(userAgent)
+
         let vlcOpened = false
 
-        // Method 1: Try VLC protocol registration (Windows) - Primary method
-        try {
-            window.location.href = `vlc://${videoUrl}`
-            console.log('Tried VLC protocol (method 1)')
-            vlcOpened = true
-        } catch (error) {
-            console.warn('VLC protocol method 1 failed:', error)
-        }
+        if (isAndroid) {
+            // Android VLC opening methods
+            try {
+                // Method 1: Android Intent for VLC
+                const vlcIntent = `intent://${encodeURIComponent(videoUrl)}#Intent;package=org.videolan.vlc;type=video/*;scheme=http;end`
+                window.location.href = vlcIntent
+                console.log('Tried Android VLC Intent (method 1)')
+                vlcOpened = true
 
-        // Only try alternative methods if the first one might have failed
-        // Wait a bit to see if VLC opens, then try backup method only if needed
-        if (!vlcOpened) {
-            setTimeout(() => {
+                // Backup method: VLC scheme after delay
+                setTimeout(() => {
+                    try {
+                        window.location.href = `vlc://${encodeURIComponent(videoUrl)}`
+                        console.log('Tried Android VLC scheme (backup method)')
+                    } catch (error) {
+                        console.warn('Android VLC scheme backup failed:', error)
+                    }
+                }, 1500)
+
+            } catch (error) {
+                console.warn('Android VLC Intent failed:', error)
+                vlcOpened = false
+            }
+        } else if (isIOS) {
+            // iOS VLC opening
+            try {
+                window.location.href = `vlc-x-callback://x-callback-url/stream?url=${encodeURIComponent(videoUrl)}`
+                console.log('Tried iOS VLC callback (method 1)')
+                vlcOpened = true
+            } catch (error) {
+                console.warn('iOS VLC callback failed:', error)
+                // Fallback to regular VLC scheme
                 try {
-                    const link = document.createElement('a')
-                    link.href = `vlc://${encodeURIComponent(videoUrl)}`
-                    link.target = '_blank'
-                    link.rel = 'noopener noreferrer'
-                    document.body.appendChild(link)
-                    link.click()
-                    document.body.removeChild(link)
-                    console.log('Tried VLC protocol (method 2 - backup)')
-                } catch (error) {
-                    console.warn('VLC protocol method 2 failed:', error)
+                    window.location.href = `vlc://${encodeURIComponent(videoUrl)}`
+                    console.log('Tried iOS VLC scheme (backup)')
+                } catch (fallbackError) {
+                    console.warn('iOS VLC scheme backup failed:', fallbackError)
                 }
-            }, 1000)
+            }
+        } else {
+            // Desktop/Windows VLC opening (existing logic)
+            try {
+                window.location.href = `vlc://${videoUrl}`
+                console.log('Tried VLC protocol (method 1)')
+                vlcOpened = true
+            } catch (error) {
+                console.warn('VLC protocol method 1 failed:', error)
+            }
+
+            // Only try alternative methods if the first one might have failed
+            // Wait a bit to see if VLC opens, then try backup method only if needed
+            if (!vlcOpened) {
+                setTimeout(() => {
+                    try {
+                        const link = document.createElement('a')
+                        link.href = `vlc://${encodeURIComponent(videoUrl)}`
+                        link.target = '_blank'
+                        link.rel = 'noopener noreferrer'
+                        document.body.appendChild(link)
+                        link.click()
+                        document.body.removeChild(link)
+                        console.log('Tried VLC protocol (method 2 - backup)')
+                    } catch (error) {
+                        console.warn('VLC protocol method 2 failed:', error)
+                    }
+                }, 1000)
+            }
         }
     }
 
@@ -404,6 +451,13 @@ export function MovieProvider({ children }) {
             )
 
             dispatch({ type: ACTIONS.SET_SEARCH_RESULTS, payload: results })
+        },
+
+        getSearchSuggestions: (query) => {
+            if (!query.trim()) return []
+
+            const allTitles = state.allContent.map(item => item.title)
+            return getSearchSuggestions(query, allTitles, 5)
         },
 
         getContentByCategory: (categoryKey) => {

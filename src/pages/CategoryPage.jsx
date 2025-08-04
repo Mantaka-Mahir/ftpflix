@@ -32,12 +32,12 @@ function CategoryPage() {
 
     if (!category) {
         return (
-            <div className="min-h-screen bg-netflix-black text-white pt-20 px-4 md:px-8">
+            <div className="min-h-screen bg-ftpflix-black text-white pt-20 px-4 md:px-8">
                 <div className="max-w-7xl mx-auto text-center py-20">
                     <h1 className="text-2xl font-semibold mb-4">Category not found</h1>
                     <Link
                         to="/"
-                        className="bg-netflix-red text-white px-6 py-3 rounded hover:bg-red-700 transition-colors"
+                        className="bg-ftpflix-red text-white px-6 py-3 rounded hover:bg-red-700 transition-colors"
                     >
                         Go back to Home
                     </Link>
@@ -47,7 +47,7 @@ function CategoryPage() {
     }
 
     return (
-        <div className="min-h-screen bg-netflix-black text-white pt-20">
+        <div className="min-h-screen bg-ftpflix-black text-white pt-20">
             {/* Header */}
             <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
                 <div className="flex items-center justify-between mb-8">
@@ -72,7 +72,7 @@ function CategoryPage() {
                         <select
                             value={filterType}
                             onChange={(e) => setFilterType(e.target.value)}
-                            className="bg-netflix-gray text-white px-3 py-2 rounded border border-gray-600 focus:border-white focus:outline-none"
+                            className="bg-ftpflix-gray text-white px-3 py-2 rounded border border-gray-600 focus:border-white focus:outline-none"
                         >
                             <option value="all">All Types</option>
                             <option value="movie">Movies</option>
@@ -83,24 +83,24 @@ function CategoryPage() {
                         <select
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value)}
-                            className="bg-netflix-gray text-white px-3 py-2 rounded border border-gray-600 focus:border-white focus:outline-none"
+                            className="bg-ftpflix-gray text-white px-3 py-2 rounded border border-gray-600 focus:border-white focus:outline-none"
                         >
                             <option value="title">Sort by Title</option>
                             <option value="type">Sort by Type</option>
                         </select>
 
                         {/* View Mode Toggle */}
-                        <div className="flex bg-netflix-gray rounded overflow-hidden">
+                        <div className="flex bg-ftpflix-gray rounded overflow-hidden">
                             <button
                                 onClick={() => setViewMode('grid')}
-                                className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-netflix-red text-white' : 'text-gray-400 hover:text-white'
+                                className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-ftpflix-red text-white' : 'text-gray-400 hover:text-white'
                                     }`}
                             >
                                 <FiGrid size={20} />
                             </button>
                             <button
                                 onClick={() => setViewMode('list')}
-                                className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-netflix-red text-white' : 'text-gray-400 hover:text-white'
+                                className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-ftpflix-red text-white' : 'text-gray-400 hover:text-white'
                                     }`}
                             >
                                 <FiList size={20} />
@@ -144,7 +144,7 @@ function CategoryPage() {
                 {/* Load More Button (for large datasets) */}
                 {filteredContent.length > 100 && (
                     <div className="text-center mt-8">
-                        <button className="bg-netflix-gray text-white px-6 py-3 rounded hover:bg-gray-600 transition-colors">
+                        <button className="bg-ftpflix-gray text-white px-6 py-3 rounded hover:bg-gray-600 transition-colors">
                             Load More
                         </button>
                     </div>
@@ -169,10 +169,10 @@ function ListItem({ content, actions }) {
     }
 
     return (
-        <div className="bg-netflix-gray p-4 rounded-lg hover:bg-gray-600 transition-colors">
+        <div className="bg-ftpflix-gray p-4 rounded-lg hover:bg-gray-600 transition-colors">
             <div className="flex items-center gap-4">
                 {/* Thumbnail */}
-                <div className="w-20 h-28 flex-shrink-0 bg-netflix-black rounded overflow-hidden">
+                <div className="w-20 h-28 flex-shrink-0 bg-ftpflix-black rounded overflow-hidden">
                     <img
                         src={content.banner || `https://via.placeholder.com/80x112/141414/ffffff?text=${encodeURIComponent(content.title.slice(0, 2))}`}
                         alt={content.title}
@@ -209,7 +209,7 @@ function ListItem({ content, actions }) {
                     </button>
                     <button
                         onClick={handleInfo}
-                        className="bg-netflix-red text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
+                        className="bg-ftpflix-red text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
                     >
                         Info
                     </button>
