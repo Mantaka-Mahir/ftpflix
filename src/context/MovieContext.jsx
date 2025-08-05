@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react'
-import { getSearchSuggestions } from '../utils/fuzzySearch'
+import React, { createContext, useContext, useReducer, useEffect, useRef, useMemo, useCallback } from 'react'
+import { getSearchSuggestions, optimizedSearch, debounce, clearSearchCache } from '../utils/fuzzySearch'
 
 // Initial state
 const initialState = {
@@ -12,10 +12,11 @@ const initialState = {
     searchResults: [],
     loading: false,
     error: null,
-    allContent: []
+    allContent: [],
+    contentByCategory: {}, // Cache for category-based content
+    searchCache: new Map() // Local search cache
 }
 
-// Action types
 const ACTIONS = {
     SET_CATEGORIES: 'SET_CATEGORIES',
     SET_ALL_CONTENT: 'SET_ALL_CONTENT',
@@ -28,7 +29,9 @@ const ACTIONS = {
     SET_SEARCH_QUERY: 'SET_SEARCH_QUERY',
     SET_SEARCH_RESULTS: 'SET_SEARCH_RESULTS',
     SET_LOADING: 'SET_LOADING',
-    SET_ERROR: 'SET_ERROR'
+    SET_ERROR: 'SET_ERROR',
+    SET_CONTENT_BY_CATEGORY: 'SET_CONTENT_BY_CATEGORY',
+    CLEAR_SEARCH: 'CLEAR_SEARCH'
 }
 
 // Reducer
@@ -58,6 +61,21 @@ function movieReducer(state, action) {
             return { ...state, loading: action.payload }
         case ACTIONS.SET_ERROR:
             return { ...state, error: action.payload }
+        case ACTIONS.SET_CONTENT_BY_CATEGORY:
+            return {
+                ...state,
+                contentByCategory: {
+                    ...state.contentByCategory,
+                    [action.payload.category]: action.payload.content
+                }
+            }
+        case ACTIONS.CLEAR_SEARCH:
+            return {
+                ...state,
+                searchQuery: '',
+                searchResults: [],
+                searchCache: new Map()
+            }
         default:
             return state
     }
@@ -75,8 +93,53 @@ export function MovieProvider({ children }) {
         loadMovieData()
     }, [])
 
+    // Effect to handle search when content gets loaded
+    useEffect(() => {
+        // If we have a search query but no results, and content just loaded, retry the search
+        if (state.searchQuery && state.searchResults.length === 0 && state.allContent.length > 0 && !state.loading) {
+            console.log('Content loaded, retrying search for:', state.searchQuery)
+            const results = optimizedSearch(state.searchQuery, state.allContent, 100)
+            dispatch({ type: ACTIONS.SET_SEARCH_RESULTS, payload: results })
+        }
+    }, [state.allContent.length, state.searchQuery, state.searchResults.length, state.loading])
+
     // Debounce mechanism to prevent multiple VLC openings
     const vlcOpeningRef = useRef(false)
+
+    // Debounced search function
+    const debouncedSearch = useRef(
+        debounce((query, dispatch, allContent) => {
+            console.log('Debounced search executing:', { query, contentCount: allContent.length })
+
+            if (!query.trim()) {
+                dispatch({ type: ACTIONS.SET_SEARCH_RESULTS, payload: [] })
+                return
+            }
+
+            if (!allContent || allContent.length === 0) {
+                console.log('No content available for search')
+                dispatch({ type: ACTIONS.SET_SEARCH_RESULTS, payload: [] })
+                return
+            }
+
+            try {
+                const results = optimizedSearch(query, allContent, 100) // Limit to 100 results max
+                console.log('Search results:', results.length)
+                dispatch({ type: ACTIONS.SET_SEARCH_RESULTS, payload: results })
+            } catch (error) {
+                console.error('Search error:', error)
+                dispatch({ type: ACTIONS.SET_SEARCH_RESULTS, payload: [] })
+            }
+        }, 300) // 300ms debounce
+    ).current
+
+    // Cleanup function for component unmount
+    useEffect(() => {
+        return () => {
+            // Clear caches on unmount
+            clearSearchCache()
+        }
+    }, [])
 
     // Utility function to open video in VLC
     const openInVLC = (videoUrl, title) => {
@@ -182,103 +245,76 @@ export function MovieProvider({ children }) {
         }
     }
 
-    // Function to group series by main title and combine seasons
+    // Optimized function to group series by main title and combine seasons
     const groupSeriesByTitle = (items) => {
-        const seriesMap = new Map()
-        const bannerMap = new Map() // Store banners separately first
+        if (!items || items.length === 0) return []
 
-        // First pass: collect all banners from items that have them
+        const seriesMap = new Map()
+        const bannerMap = new Map()
+
+        // First pass: collect banners (optimized)
         items.forEach(item => {
             if (item.banner && item.title) {
-                // Extract the core series name from titles that have banners
                 let coreTitle = item.title
+                    .replace(/^.*?\s*-\s*/, '')
+                    .replace(/\s*-\s*Season\s+\d+.*$/i, '')
+                    .replace(/\s+\([^)]*\)\s*.*$/, '')
+                    .trim()
 
-                // Remove various patterns to get core title
-                coreTitle = coreTitle.replace(/^.*?\s*-\s*/, '') // Remove category prefix
-                coreTitle = coreTitle.replace(/\s*-\s*Season\s+\d+.*$/i, '') // Remove season suffix
-                coreTitle = coreTitle.replace(/\s+\([^)]*\)\s*.*$/, '') // Remove year/quality info and everything after
-                coreTitle = coreTitle.trim()
-
-                // Store banner with the core title and original title
                 if (coreTitle && !bannerMap.has(coreTitle)) {
                     bannerMap.set(coreTitle, item.banner)
-                    console.log(`Found banner for: "${coreTitle}" -> ${item.banner}`)
                 }
-                // Also store with original title as fallback
                 if (item.title && !bannerMap.has(item.title)) {
                     bannerMap.set(item.title, item.banner)
                 }
             }
         })
 
-        // Second pass: group series and assign banners (more lenient filtering)
+        // Second pass: group series efficiently
         items.forEach(item => {
-            // Only skip truly empty items
-            if (!item.title) {
-                return
+            if (!item.title) return
+
+            // Skip items with no content
+            const hasContent = (item.seasons && item.seasons.length > 0) ||
+                (item.episodes && item.episodes.length > 0)
+            if (!hasContent) return
+
+            // Normalize to seasons format
+            if (item.episodes && item.episodes.length > 0 && !item.seasons) {
+                item.seasons = [{ season_number: 1, episodes: item.episodes }]
             }
 
-            // More lenient check - include items with seasons even if some don't have episodes
-            if (item.seasons && item.seasons.length > 0) {
-                // This item has seasons, process it
-            } else if (item.episodes && item.episodes.length > 0) {
-                // This item has direct episodes, convert to season format
-                item.seasons = [{
-                    season_number: 1,
-                    episodes: item.episodes
-                }]
-            } else {
-                // Skip only if it has no content at all
-                console.log(`Skipping item with no content: "${item.title}"`)
-                return
-            }
-
-            // Extract main series title by removing season info
+            // Extract main title
             let mainTitle = item.title
-
-            // Handle specific pattern like "Demon Slayer-Kimetsu no Yaiba (TV Cartoon 2019– ) 1080p [Multi Audio] - Season X"
-            let seasonMatch = item.title.match(/^(.*?)\s*-\s*Season\s+\d+/i)
+            const seasonMatch = item.title.match(/^(.*?)\s*-\s*Season\s+\d+/i)
             if (seasonMatch) {
                 mainTitle = seasonMatch[1].trim()
             } else {
-                // Handle pattern like "Anime-TV Series ♥ A — F - Series Name (details)"
-                let categoryMatch = item.title.match(/^.*?\s*-\s*(.+?)\s*\([^)]*\)\s*.*$/i)
+                const categoryMatch = item.title.match(/^.*?\s*-\s*(.+?)\s*\([^)]*\)\s*.*$/i)
                 if (categoryMatch) {
                     mainTitle = categoryMatch[1].trim()
                 } else {
-                    // Remove category prefix if it exists (fallback)
                     mainTitle = item.title.replace(/^.*?\s*-\s*/, '').trim()
                 }
             }
 
-            // Clean up the main title to match banner keys
-            let coreTitle = mainTitle.replace(/\s+\([^)]*\)\s*.*$/, '').trim()
+            const coreTitle = mainTitle.replace(/\s+\([^)]*\)\s*.*$/, '').trim()
 
-            // Get or create the main series entry
+            // Create or get series entry
             if (!seriesMap.has(mainTitle)) {
-                // Find the best matching banner using multiple strategies
-                let banner = item.banner || // Use item's own banner first
+                let banner = item.banner ||
                     bannerMap.get(coreTitle) ||
                     bannerMap.get(mainTitle) ||
-                    bannerMap.get(item.title) || // Try original title
-                    null
+                    bannerMap.get(item.title)
 
-                // If no banner found, try partial matching with more flexible approach
+                // Fallback banner search
                 if (!banner) {
-                    // Extract core name for matching (like "Demon Slayer-Kimetsu no Yaiba")
-                    let extractedCore = mainTitle.replace(/\s*\([^)]*\).*$/, '').trim()
-
+                    const extractedCore = mainTitle.replace(/\s*\([^)]*\).*$/, '').trim()
                     for (const [bannerKey, bannerUrl] of bannerMap.entries()) {
-                        let bannerCore = bannerKey.replace(/\s*\([^)]*\).*$/, '').trim()
-
+                        const bannerCore = bannerKey.replace(/\s*\([^)]*\).*$/, '').trim()
                         if (extractedCore.toLowerCase().includes(bannerCore.toLowerCase()) ||
-                            bannerCore.toLowerCase().includes(extractedCore.toLowerCase()) ||
-                            coreTitle.toLowerCase().includes(bannerCore.toLowerCase()) ||
-                            bannerCore.toLowerCase().includes(coreTitle.toLowerCase()) ||
-                            mainTitle.toLowerCase().includes(bannerCore.toLowerCase()) ||
-                            bannerCore.toLowerCase().includes(mainTitle.toLowerCase())) {
+                            bannerCore.toLowerCase().includes(extractedCore.toLowerCase())) {
                             banner = bannerUrl
-                            console.log(`Found partial match banner for "${mainTitle}": ${bannerKey}`)
                             break
                         }
                     }
@@ -286,52 +322,40 @@ export function MovieProvider({ children }) {
 
                 seriesMap.set(mainTitle, {
                     title: mainTitle,
-                    banner: banner,
+                    banner: banner || `https://via.placeholder.com/300x450/1a1a1a/ffffff?text=${encodeURIComponent(mainTitle)}`,
                     seasons: [],
                     type: 'series',
                     category: item.category,
                     categoryKey: item.categoryKey
                 })
-
-                console.log(`Created series: "${mainTitle}" with banner: ${banner ? 'YES' : 'NO'}`)
             }
 
             const mainSeries = seriesMap.get(mainTitle)
 
-            // Add seasons from this item to the main series
+            // Add unique seasons only
             if (item.seasons) {
                 item.seasons.forEach(season => {
-                    // Check if this season already exists and has episodes
+                    if (!season.episodes || season.episodes.length === 0) return
+
                     const existingSeason = mainSeries.seasons.find(s => s.season_number === season.season_number)
-                    if (!existingSeason && season.episodes && season.episodes.length > 0) {
+                    if (!existingSeason) {
                         mainSeries.seasons.push(season)
                     }
                 })
             }
         })
 
-        // Convert map to array and sort seasons
+        // Convert to array and sort seasons
         const groupedSeries = Array.from(seriesMap.values())
         groupedSeries.forEach(series => {
             series.seasons.sort((a, b) => a.season_number - b.season_number)
         })
 
         console.log(`Grouped ${items.length} series items into ${groupedSeries.length} main series`)
-        console.log(`Found banners for ${bannerMap.size} series`)
-
-        // Add fallback banners for series without banners
-        groupedSeries.forEach(series => {
-            if (!series.banner) {
-                // Create a placeholder banner URL
-                series.banner = `https://via.placeholder.com/300x450/1a1a1a/ffffff?text=${encodeURIComponent(series.title)}`
-                console.log(`Added placeholder banner for: "${series.title}"`)
-            }
-        })
-
         return groupedSeries
     }
 
-    // Load movie data from JSON files
+    // Load movie data from JSON files with progressive loading
     const loadMovieData = async () => {
         try {
             dispatch({ type: ACTIONS.SET_LOADING, payload: true })
@@ -341,56 +365,98 @@ export function MovieProvider({ children }) {
             const indexData = await indexResponse.json()
             dispatch({ type: ACTIONS.SET_CATEGORIES, payload: indexData.categories })
 
-            // Load all content from different category files
-            const allContent = []
-            const categoryPromises = Object.keys(indexData.categories)
-                .filter(categoryKey => categoryKey !== 'all') // Skip 'all' category
-                .map(async (categoryKey) => {
-                    try {
-                        console.log(`Loading ${categoryKey}.json...`)
-                        const response = await fetch(`/data/${categoryKey}.json`)
-                        const data = await response.json()
-                        if (data.items) {
-                            console.log(`Loaded ${data.items.length} items from ${categoryKey}`)
+            // Progressive loading strategy: Load smaller categories first, then larger ones
+            const categoryEntries = Object.entries(indexData.categories)
+                .filter(([categoryKey]) => categoryKey !== 'all')
+                .sort(([, a], [, b]) => a.count - b.count) // Sort by count, smaller first
 
-                            // Special handling for series to group seasons
-                            if (data.type === 'series') {
-                                const groupedSeries = groupSeriesByTitle(data.items)
-                                groupedSeries.forEach(item => {
-                                    allContent.push({
-                                        ...item,
-                                        category: data.category,
-                                        categoryKey,
-                                        type: data.type
-                                    })
-                                })
-                            } else {
-                                // Regular handling for movies
-                                data.items.forEach(item => {
-                                    allContent.push({
-                                        ...item,
-                                        category: data.category,
-                                        categoryKey,
-                                        type: data.type
-                                    })
-                                })
-                            }
+            const allContent = []
+            let loadedCount = 0
+            const totalCategories = categoryEntries.length
+
+            // Load categories in batches to prevent UI blocking
+            const BATCH_SIZE = 3
+            for (let i = 0; i < categoryEntries.length; i += BATCH_SIZE) {
+                const batch = categoryEntries.slice(i, i + BATCH_SIZE)
+
+                const batchPromises = batch.map(async ([categoryKey, categoryInfo]) => {
+                    try {
+                        console.log(`Loading ${categoryKey}.json... (${categoryInfo.count} items)`)
+                        const response = await fetch(`/data/${categoryKey}.json`)
+
+                        if (!response.ok) {
+                            console.warn(`Failed to load ${categoryKey}.json: ${response.status}`)
+                            return []
+                        }
+
+                        const data = await response.json()
+                        if (!data.items || !Array.isArray(data.items)) {
+                            console.warn(`Invalid data structure in ${categoryKey}.json`)
+                            return []
+                        }
+
+                        console.log(`Loaded ${data.items.length} items from ${categoryKey}`)
+
+                        // Special handling for series to group seasons (optimized)
+                        if (data.type === 'series') {
+                            const groupedSeries = groupSeriesByTitle(data.items)
+                            return groupedSeries.map(item => ({
+                                ...item,
+                                category: data.category,
+                                categoryKey,
+                                type: data.type
+                            }))
+                        } else {
+                            // Regular handling for movies
+                            return data.items.map(item => ({
+                                ...item,
+                                category: data.category,
+                                categoryKey,
+                                type: data.type
+                            }))
                         }
                     } catch (error) {
                         console.warn(`Failed to load ${categoryKey}.json:`, error)
+                        return []
                     }
                 })
 
-            await Promise.all(categoryPromises)
-            console.log(`Loaded ${allContent.length} total items from all categories`)
-            dispatch({ type: ACTIONS.SET_ALL_CONTENT, payload: allContent })
+                // Process batch and update UI
+                const batchResults = await Promise.all(batchPromises)
+                batchResults.forEach(categoryContent => {
+                    allContent.push(...categoryContent)
+                })
+
+                loadedCount += batch.length
+                console.log(`Loaded ${loadedCount}/${totalCategories} categories (${allContent.length} total items)`)
+
+                // Update content progressively for better perceived performance
+                if (allContent.length > 0) {
+                    dispatch({ type: ACTIONS.SET_ALL_CONTENT, payload: [...allContent] })
+                    console.log(`Updated content: ${allContent.length} total items loaded`)
+                }
+
+                // Small delay between batches to prevent UI blocking
+                if (i + BATCH_SIZE < categoryEntries.length) {
+                    await new Promise(resolve => setTimeout(resolve, 50))
+                }
+            }
+
+            console.log(`Finished loading ${allContent.length} total items from all categories`)
 
         } catch (error) {
+            console.error('Error loading movie data:', error)
             dispatch({ type: ACTIONS.SET_ERROR, payload: error.message })
         } finally {
             dispatch({ type: ACTIONS.SET_LOADING, payload: false })
         }
     }
+
+    // Memoize the titles list outside of the callback
+    const allTitles = useMemo(() =>
+        state.allContent.map(item => item.title).filter(Boolean),
+        [state.allContent]
+    )
 
     // Action creators
     const actions = {
@@ -437,7 +503,8 @@ export function MovieProvider({ children }) {
             }
         },
 
-        search: (query) => {
+        search: useCallback((query) => {
+            console.log('Search called with query:', query)
             dispatch({ type: ACTIONS.SET_SEARCH_QUERY, payload: query })
 
             if (!query.trim()) {
@@ -445,30 +512,71 @@ export function MovieProvider({ children }) {
                 return
             }
 
-            const results = state.allContent.filter(item =>
-                item.title.toLowerCase().includes(query.toLowerCase()) ||
-                (item.category && item.category.toLowerCase().includes(query.toLowerCase()))
-            )
+            // Check if content is loaded
+            if (state.allContent.length === 0) {
+                console.log('No content loaded yet, search will retry when content is available')
+                // Set loading state while waiting for content
+                dispatch({ type: ACTIONS.SET_LOADING, payload: true })
 
-            dispatch({ type: ACTIONS.SET_SEARCH_RESULTS, payload: results })
-        },
+                // Set a timeout to retry search after content loads
+                setTimeout(() => {
+                    if (state.allContent.length > 0) {
+                        console.log('Retrying search with loaded content')
+                        const results = optimizedSearch(query, state.allContent, 100)
+                        dispatch({ type: ACTIONS.SET_SEARCH_RESULTS, payload: results })
+                        dispatch({ type: ACTIONS.SET_LOADING, payload: false })
+                    }
+                }, 1000)
+                return
+            }
 
-        getSearchSuggestions: (query) => {
-            if (!query.trim()) return []
+            // Use debounced search to prevent excessive calls
+            debouncedSearch(query, dispatch, state.allContent)
+        }, [state.allContent, debouncedSearch]),
 
-            const allTitles = state.allContent.map(item => item.title)
+        clearSearch: useCallback(() => {
+            dispatch({ type: ACTIONS.CLEAR_SEARCH })
+            clearSearchCache()
+        }, []),
+
+        getSearchSuggestions: useCallback((query) => {
+            if (!query.trim() || query.length < 2) return []
+
             return getSearchSuggestions(query, allTitles, 5)
-        },
-
-        getContentByCategory: (categoryKey) => {
+        }, [allTitles]), getContentByCategory: useCallback((categoryKey) => {
             if (categoryKey === 'all') {
                 return state.allContent
             }
-            return state.allContent.filter(item => item.categoryKey === categoryKey)
-        },
+
+            // Check cache first
+            if (state.contentByCategory[categoryKey]) {
+                return state.contentByCategory[categoryKey]
+            }
+
+            // Filter and cache result
+            const content = state.allContent.filter(item => item.categoryKey === categoryKey)
+            dispatch({
+                type: ACTIONS.SET_CONTENT_BY_CATEGORY,
+                payload: { category: categoryKey, content }
+            })
+
+            return content
+        }, [state.allContent, state.contentByCategory]),
 
         reloadData: () => {
             loadMovieData()
+        },
+
+        // Debug function to test search directly
+        debugSearch: (query) => {
+            console.log('Debug search called with:', query)
+            console.log('Available content:', state.allContent.length)
+            if (state.allContent.length > 0) {
+                const results = optimizedSearch(query, state.allContent, 100)
+                console.log('Debug search results:', results.length, results.slice(0, 3))
+                return results
+            }
+            return []
         }
     }
 

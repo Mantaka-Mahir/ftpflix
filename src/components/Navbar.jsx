@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FiSearch, FiMenu, FiX } from 'react-icons/fi'
 import { useMovie } from '../context/MovieContext'
+import { debounce } from '../utils/fuzzySearch'
 
 function Navbar() {
     const [isSearchOpen, setIsSearchOpen] = useState(false)
@@ -9,27 +10,92 @@ function Navbar() {
     const [isScrolled, setIsScrolled] = useState(false)
     const [suggestions, setSuggestions] = useState([])
     const [showSuggestions, setShowSuggestions] = useState(false)
+    const [searchInput, setSearchInput] = useState('') // Local search input
     const { state, actions } = useMovie()
     const navigate = useNavigate()
 
-    // Handle scroll effect
+    // Refs for cleanup
+    const scrollHandlerRef = useRef()
+    const suggestionTimeoutRef = useRef()
+
+    // Debounced search and suggestions
+    const debouncedSearch = useRef(
+        debounce((value) => {
+            actions.search(value)
+        }, 300)
+    ).current
+
+    const debouncedSuggestions = useRef(
+        debounce((value) => {
+            if (value.trim().length > 1) {
+                const searchSuggestions = actions.getSearchSuggestions(value)
+                setSuggestions(searchSuggestions)
+                setShowSuggestions(true)
+            } else {
+                setSuggestions([])
+                setShowSuggestions(false)
+            }
+        }, 150)
+    ).current
+
+    // Handle scroll effect with cleanup
     useEffect(() => {
         const handleScroll = () => {
             setIsScrolled(window.scrollY > 50)
         }
-        window.addEventListener('scroll', handleScroll)
-        return () => window.removeEventListener('scroll', handleScroll)
+        scrollHandlerRef.current = handleScroll
+        window.addEventListener('scroll', handleScroll, { passive: true })
+
+        return () => {
+            if (scrollHandlerRef.current) {
+                window.removeEventListener('scroll', scrollHandlerRef.current)
+            }
+        }
     }, [])
+
+    // Cleanup timeouts on unmount
+    useEffect(() => {
+        return () => {
+            if (suggestionTimeoutRef.current) {
+                clearTimeout(suggestionTimeoutRef.current)
+            }
+        }
+    }, [])
+
+    // Handle search input changes
+    const handleSearchInputChange = useCallback((value) => {
+        setSearchInput(value)
+        debouncedSearch(value)
+        debouncedSuggestions(value)
+    }, [debouncedSearch, debouncedSuggestions])
+
+    // Clear search when closing search
+    const handleCloseSearch = useCallback(() => {
+        setIsSearchOpen(false)
+        setShowSuggestions(false)
+        setSearchInput('')
+        actions.clearSearch()
+    }, [actions])
 
     // Handle search
     const handleSearch = (e) => {
         e.preventDefault()
-        if (state.searchQuery.trim()) {
-            navigate('/search')
+        if (searchInput.trim()) {
+            console.log('Navbar: Searching for:', searchInput.trim())
+            navigate(`/search?q=${encodeURIComponent(searchInput.trim())}`)
             setIsSearchOpen(false)
             setIsMobileMenuOpen(false)
         }
     }
+
+    const handleSuggestionClick = useCallback((suggestion) => {
+        console.log('Navbar: Suggestion clicked:', suggestion)
+        setSearchInput(suggestion)
+        actions.search(suggestion)
+        navigate(`/search?q=${encodeURIComponent(suggestion)}`)
+        setIsSearchOpen(false)
+        setShowSuggestions(false)
+    }, [actions, navigate])
 
     const categories = Object.entries(state.categories)
         .sort(([keyA], [keyB]) => {
@@ -60,12 +126,12 @@ function Navbar() {
                             <button className="text-white hover:text-gray-300 transition-colors">
                                 Categories
                             </button>
-                            <div className="absolute top-full left-0 mt-2 w-80 bg-netflix-black bg-opacity-95 backdrop-blur-sm rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                            <div className="absolute top-full left-0 mt-2 w-80 bg-ftpflix-black bg-opacity-95 backdrop-blur-sm rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
                                 <div className="p-4 space-y-2 max-h-96 overflow-y-auto">{categories.map(([key, category]) => (
                                     <Link
                                         key={key}
                                         to={`/category/${key}`}
-                                        className="block text-sm text-white hover:text-netflix-red transition-colors"
+                                        className="block text-sm text-white hover:text-ftpflix-red transition-colors"
                                     >
                                         {category.name} ({category.count})
                                     </Link>
@@ -85,35 +151,22 @@ function Navbar() {
                                         <input
                                             type="text"
                                             placeholder="Search for movies, series, categories..."
-                                            value={state.searchQuery}
-                                            onChange={(e) => {
-                                                actions.search(e.target.value)
-                                                if (e.target.value.trim().length > 1) {
-                                                    const searchSuggestions = actions.getSearchSuggestions(e.target.value)
-                                                    setSuggestions(searchSuggestions)
-                                                    setShowSuggestions(true)
-                                                } else {
-                                                    setSuggestions([])
-                                                    setShowSuggestions(false)
-                                                }
-                                            }}
+                                            value={searchInput}
+                                            onChange={(e) => handleSearchInputChange(e.target.value)}
                                             onFocus={() => {
-                                                if (state.searchQuery.trim().length > 1) {
-                                                    const searchSuggestions = actions.getSearchSuggestions(state.searchQuery)
-                                                    setSuggestions(searchSuggestions)
-                                                    setShowSuggestions(true)
+                                                if (searchInput.trim().length > 1) {
+                                                    debouncedSuggestions(searchInput)
                                                 }
                                             }}
-                                            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                                            onBlur={() => {
+                                                suggestionTimeoutRef.current = setTimeout(() => setShowSuggestions(false), 200)
+                                            }}
                                             className="w-80 px-4 py-3 bg-black bg-opacity-70 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:border-white focus:bg-opacity-90 transition-all duration-200"
                                             autoFocus
                                         />
                                         <button
                                             type="button"
-                                            onClick={() => {
-                                                setIsSearchOpen(false)
-                                                setShowSuggestions(false)
-                                            }}
+                                            onClick={handleCloseSearch}
                                             className="ml-3 text-white hover:text-gray-300 transition-colors"
                                         >
                                             <FiX size={24} />
@@ -127,12 +180,7 @@ function Navbar() {
                                                 <button
                                                     key={index}
                                                     type="button"
-                                                    onClick={() => {
-                                                        actions.search(suggestion)
-                                                        navigate('/search')
-                                                        setIsSearchOpen(false)
-                                                        setShowSuggestions(false)
-                                                    }}
+                                                    onClick={() => handleSuggestionClick(suggestion)}
                                                     className="w-full text-left px-4 py-3 hover:bg-gray-700 transition-colors border-b border-gray-700 last:border-b-0 text-white"
                                                 >
                                                     <FiSearch className="inline mr-3 text-gray-400" size={16} />
@@ -164,11 +212,11 @@ function Navbar() {
 
                 {/* Mobile Menu */}
                 {isMobileMenuOpen && (
-                    <div className="md:hidden bg-netflix-black bg-opacity-95 backdrop-blur-sm rounded-lg mt-2 p-4">
+                    <div className="md:hidden bg-ftpflix-black bg-opacity-95 backdrop-blur-sm rounded-lg mt-2 p-4">
                         <div className="space-y-4">
                             <Link
                                 to="/"
-                                className="block text-white hover:text-netflix-red transition-colors"
+                                className="block text-white hover:text-ftpflix-red transition-colors"
                                 onClick={() => setIsMobileMenuOpen(false)}
                             >
                                 Home
@@ -181,7 +229,7 @@ function Navbar() {
                                     <Link
                                         key={key}
                                         to={`/category/${key}`}
-                                        className="block text-sm text-white hover:text-netflix-red transition-colors pl-4"
+                                        className="block text-sm text-white hover:text-ftpflix-red transition-colors pl-4"
                                         onClick={() => setIsMobileMenuOpen(false)}
                                     >
                                         {category.name} ({category.count})

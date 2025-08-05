@@ -1,54 +1,116 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { FiSearch, FiArrowLeft } from 'react-icons/fi'
 import ContentCard, { ContentDetailsModal } from '../components/ContentCard'
 import { useMovie } from '../context/MovieContext'
 
+// Virtual scrolling parameters
+const ITEMS_PER_PAGE = 30
+const GRID_COLS = {
+    sm: 2,
+    md: 3,
+    lg: 4,
+    xl: 5,
+    '2xl': 6
+}
+
 function SearchPage() {
     const [searchParams] = useSearchParams()
     const { state, actions } = useMovie()
-    const [inputValue, setInputValue] = useState('')
-    const [suggestions, setSuggestions] = useState([])
-    const [showSuggestions, setShowSuggestions] = useState(false)
+    const [displayedResults, setDisplayedResults] = useState([])
+    const [currentPage, setCurrentPage] = useState(1)
+    const [isLoadingMore, setIsLoadingMore] = useState(false)
 
     const query = searchParams.get('q') || ''
 
+    // Memoize the results to avoid unnecessary re-renders
+    const searchResults = useMemo(() => {
+        return state.searchResults || []
+    }, [state.searchResults])
+
+    // Load initial results or when query changes
     useEffect(() => {
-        if (query) {
+        console.log('SearchPage: Query changed to:', query)
+        console.log('SearchPage: Current search query in state:', state.searchQuery)
+        console.log('SearchPage: Available content count:', state.allContent.length)
+
+        if (query && query !== state.searchQuery) {
+            console.log('SearchPage: Triggering search for:', query)
             actions.search(query)
-            setInputValue(query)
+        } else if (query && query === state.searchQuery && state.searchResults.length === 0 && state.allContent.length > 0) {
+            // If we have the same query but no results and content is loaded, retry search
+            console.log('SearchPage: Retrying search for existing query:', query)
+            actions.search(query)
         }
-    }, [query, actions])
+    }, [query, actions, state.searchQuery, state.allContent.length])
 
-    const handleInputChange = (e) => {
-        const value = e.target.value
-        setInputValue(value)
-
-        if (value.trim().length > 1) {
-            const searchSuggestions = actions.getSearchSuggestions(value)
-            setSuggestions(searchSuggestions)
-            setShowSuggestions(true)
+    // Update displayed results when search results change
+    useEffect(() => {
+        if (searchResults.length > 0) {
+            const initialResults = searchResults.slice(0, ITEMS_PER_PAGE)
+            setDisplayedResults(initialResults)
+            setCurrentPage(1)
         } else {
-            setSuggestions([])
-            setShowSuggestions(false)
+            setDisplayedResults([])
+            setCurrentPage(1)
         }
-    }
+    }, [searchResults])
 
-    const handleSearchSubmit = (e) => {
-        e.preventDefault()
-        if (inputValue.trim()) {
-            actions.search(inputValue)
-            setShowSuggestions(false)
-            window.history.pushState({}, '', `/search?q=${encodeURIComponent(inputValue)}`)
+    // Load more results function
+    const loadMoreResults = useCallback(() => {
+        if (isLoadingMore || displayedResults.length >= searchResults.length) {
+            return
         }
-    }
 
-    const handleSuggestionClick = (suggestion) => {
-        setInputValue(suggestion)
+        setIsLoadingMore(true)
+
+        // Simulate async loading for better UX
+        setTimeout(() => {
+            const nextPage = currentPage + 1
+            const startIndex = currentPage * ITEMS_PER_PAGE
+            const endIndex = startIndex + ITEMS_PER_PAGE
+            const newResults = searchResults.slice(startIndex, endIndex)
+
+            setDisplayedResults(prev => [...prev, ...newResults])
+            setCurrentPage(nextPage)
+            setIsLoadingMore(false)
+        }, 100)
+    }, [isLoadingMore, displayedResults.length, searchResults.length, currentPage, searchResults])
+
+    // Intersection Observer for infinite scroll
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && !isLoadingMore && displayedResults.length < searchResults.length) {
+                    loadMoreResults()
+                }
+            },
+            {
+                rootMargin: '100px',
+                threshold: 0.1
+            }
+        )
+
+        const sentinel = document.getElementById('scroll-sentinel')
+        if (sentinel) {
+            observer.observe(sentinel)
+        }
+
+        return () => {
+            if (sentinel) {
+                observer.unobserve(sentinel)
+            }
+        }
+    }, [loadMoreResults, isLoadingMore, displayedResults.length, searchResults.length])
+
+    // Optimized suggestion click handler
+    const handleSuggestionClick = useCallback((suggestion) => {
+        console.log('SearchPage: Suggestion clicked:', suggestion)
+        setSearchInput(suggestion)
         actions.search(suggestion)
-        setShowSuggestions(false)
+        // Update URL with new search query
         window.history.pushState({}, '', `/search?q=${encodeURIComponent(suggestion)}`)
-    }
+    }, [actions])
 
     return (
         <div className="min-h-screen bg-ftpflix-black text-white pt-20">
@@ -71,8 +133,8 @@ function SearchPage() {
                 {state.searchQuery && (
                     <div className="mb-6">
                         <h2 className="text-xl font-semibold mb-4">
-                            {state.searchResults.length > 0
-                                ? `Found ${state.searchResults.length} results for "${state.searchQuery}"`
+                            {searchResults.length > 0
+                                ? `Found ${searchResults.length} results for "${state.searchQuery}"${displayedResults.length < searchResults.length ? ` (showing ${displayedResults.length})` : ''}`
                                 : `No results found for "${state.searchQuery}"`
                             }
                         </h2>
@@ -80,22 +142,40 @@ function SearchPage() {
                 )}
 
                 {/* Results Grid */}
-                {state.searchResults.length > 0 ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                        {state.searchResults.map((result, index) => (
-                            <div key={`${result.item?.title || result.title}-${index}`} className="relative">
-                                <ContentCard
-                                    content={result.item || result}
-                                    size="medium"
-                                />
-                                {result.score && (
-                                    <div className="absolute top-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
-                                        {Math.round(result.score * 100)}% match
-                                    </div>
+                {displayedResults.length > 0 ? (
+                    <>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                            {displayedResults.map((result, index) => (
+                                <div key={`${result.item?.title || result.title}-${index}`} className="relative">
+                                    <ContentCard
+                                        content={result.item || result}
+                                        size="medium"
+                                    />
+                                    {result.searchScore && (
+                                        <div className="absolute top-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
+                                            {Math.round((result.searchScore / 10) * 100)}% match
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Load More Trigger */}
+                        {displayedResults.length < searchResults.length && (
+                            <div id="scroll-sentinel" className="flex justify-center py-8">
+                                {isLoadingMore ? (
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                                ) : (
+                                    <button
+                                        onClick={loadMoreResults}
+                                        className="bg-ftpflix-red text-white px-6 py-3 rounded hover:bg-red-700 transition-colors"
+                                    >
+                                        Load More ({searchResults.length - displayedResults.length} remaining)
+                                    </button>
                                 )}
                             </div>
-                        ))}
-                    </div>
+                        )}
+                    </>
                 ) : state.searchQuery ? (
                     <div className="text-center py-20">
                         <div className="max-w-md mx-auto">

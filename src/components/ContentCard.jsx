@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react'
-import { FiPlay, FiInfo, FiX, FiChevronDown, FiChevronUp, FiSmartphone } from 'react-icons/fi'
+import React, { useState, useEffect, memo } from 'react'
+import { FiPlay, FiX, FiChevronDown, FiChevronUp, FiSmartphone } from 'react-icons/fi'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useMovie } from '../context/MovieContext'
 
-function ContentCard({ content, size = 'medium' }) {
+// Memoized ContentCard component to prevent unnecessary re-renders
+const ContentCard = memo(function ContentCard({ content, size = 'medium' }) {
     const [isHovered, setIsHovered] = useState(false)
     const [imageLoaded, setImageLoaded] = useState(false)
     const [imageError, setImageError] = useState(false)
@@ -57,12 +58,6 @@ function ContentCard({ content, size = 'medium' }) {
         actions.playContent(content)
     }
 
-    const handleInfo = (e) => {
-        e.stopPropagation()
-        actions.setCurrentContent(content)
-        actions.openDetails()
-    }
-
     const sizeClasses = {
         small: 'w-32 h-48',
         medium: 'w-48 h-72',
@@ -77,7 +72,7 @@ function ContentCard({ content, size = 'medium' }) {
             className={`relative ${sizeClasses[size]} flex-shrink-0 cursor-pointer content-card group`}
             onHoverStart={() => setIsHovered(true)}
             onHoverEnd={() => setIsHovered(false)}
-            onClick={handleInfo}
+            onClick={handlePlay}
             whileHover={{ scale: size === 'hero' ? 1 : 1.05 }}
             transition={{ duration: 0.2 }}
         >
@@ -136,7 +131,7 @@ function ContentCard({ content, size = 'medium' }) {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center space-x-4"
+                            className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center"
                         >
                             <motion.button
                                 initial={{ scale: 0 }}
@@ -155,32 +150,13 @@ function ContentCard({ content, size = 'medium' }) {
                                     {getVLCButtonText()}
                                 </span>
                             </motion.button>
-
-                            <motion.button
-                                initial={{ scale: 0 }}
-                                animate={{ scale: 1 }}
-                                exit={{ scale: 0 }}
-                                transition={{ delay: 0.15 }}
-                                onClick={handleInfo}
-                                className="bg-ftpflix-gray text-white p-3 rounded-full hover:bg-gray-600 transition-colors"
-                            >
-                                <FiInfo size={20} />
-                            </motion.button>
                         </motion.div>
                     )}
                 </AnimatePresence>
-
-                {/* Type indicator */}
-                <div className="absolute top-2 right-2">
-                    <span className={`text-xs px-2 py-1 rounded ${content.type === 'movie' ? 'bg-blue-600' : 'bg-green-600'
-                        } text-white`}>
-                        {content.type === 'movie' ? 'Movie' : 'Series'}
-                    </span>
-                </div>
             </div>
         </motion.div>
     )
-}
+})
 
 // Content Details Modal
 export function ContentDetailsModal() {
