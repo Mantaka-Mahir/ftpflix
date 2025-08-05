@@ -17,7 +17,6 @@ function Home() {
 
     // Featured categories to display on home page
     const featuredCategories = [
-        'all',
         'imdb_top_250',
         'english_movies_1080p',
         'hindi_movies',
